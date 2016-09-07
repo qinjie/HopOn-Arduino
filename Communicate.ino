@@ -1,6 +1,10 @@
 #include <MD5.h>
+#include "pitch.h"
 
 int state = 0;
+int speakerPin = 5;
+int melody[] = {NOTE_C4, NOTE_G3,NOTE_G3, NOTE_A3, NOTE_G3,0, NOTE_B3, NOTE_C4};
+int noteDurations[] = {4, 8, 8, 4,4,4,4,4 };
 String llb_serial = "SG11111";
 // 0: free, 1: locked, 2: unlocked
 
@@ -52,13 +56,27 @@ void loop() {
 //        Serial.println(md5str);
         if (String(md5str) == hash_in){
           if (action_in == "0" && (state == 0 || state == 1)){
-            Serial.println("Unlocked!");
+            for (int thisNote = 0; thisNote < 8; thisNote++) {
+              int noteDuration = 1000/noteDurations[thisNote];
+              tone(speakerPin, melody[thisNote],noteDuration);
+              int pauseBetweenNotes = noteDuration * 1.30;
+              delay(pauseBetweenNotes);
+              noTone(speakerPin);
+            }
             state = 2;
+            Serial.println("Unlocked!");
             Bean.setLed(0, 255, 0);
             Bean.sleep(2000);   
             Bean.setLed(0, 0, 0);
           }
           if (action_in == "1" && state == 2){
+            for (int thisNote = 0; thisNote < 8; thisNote++) {
+              int noteDuration = 1000/noteDurations[thisNote];
+              tone(speakerPin, melody[thisNote],noteDuration);
+              int pauseBetweenNotes = noteDuration * 1.30;
+              delay(pauseBetweenNotes);
+              noTone(speakerPin);
+            }
             state = 1;
             Serial.println("Locked!");
             Bean.setLed(255, 0, 0);
@@ -66,6 +84,13 @@ void loop() {
             Bean.setLed(0, 0, 0);
           }
           if (action_in == "2" && (state == 1 || state == 2)){
+            for (int thisNote = 0; thisNote < 8; thisNote++) {
+              int noteDuration = 1000/noteDurations[thisNote];
+              tone(speakerPin, melody[thisNote],noteDuration);
+              int pauseBetweenNotes = noteDuration * 1.30;
+              delay(pauseBetweenNotes);
+              noTone(speakerPin);
+            }
             state = 0;
             Serial.println("Returned!");
             Bean.setLed(0, 0, 255);
