@@ -32,7 +32,7 @@ void writeHashEEPROM(String hash) {
 
 String readUserIdEEPROM() {
   String res = "";
-  for (int addr = 64; ; ++addr) {
+  for (int addr = 64; addr < 80; ++addr) {
     char val = EEPROM.read(addr);
     if (val != '\0') res += val;
     else break;
@@ -76,7 +76,7 @@ void setup() {
   savedUserId = readUserIdEEPROM();
   state = readBicycleStateEEPROM();
   respondState();
-  logMsg("savedHash ." + savedHash + "."); 
+  logMsg("saved ." + savedHash + "." + savedUserId + "."); 
   logMsg("Started");
   
   Bean.setLed(0, 0, 0);
@@ -140,7 +140,7 @@ void loop() {
   if (validProtocol()) {
     logMsg("valid protocol");
     // Save hash and user id
-    if (savedHash.length() == 0) {
+    if (savedHash.length() == 0 && action != get_state) {
       writeHashEEPROM(hash_in);
       writeUserIdEEPROM(user_in);
     }
@@ -151,29 +151,24 @@ void loop() {
     else if (action == return_bicycle 
       && (state == unlocked_state || state == locked_state)) returnBicycle();
     else if (action == get_state) respondState();
-  }
-
-  buttonState = digitalRead(buttonPin);
-  logMsg(buttonState);
-  if (buttonState == LOW && state == unlocked_state) {
-    lockBicycle();
-  }
-  
-  if (state == free_state || state == locked_state) {
-    bool isMoving = Bean.checkMotionEvent(ORIENT_EVENT);
-    if (isMoving) {
-      Serial.print("-1");
-      alertBuzzer();
-    }
+  } else {
+    buttonState = digitalRead(buttonPin);
+    if (buttonState == LOW && state == unlocked_state) {
+      lockBicycle();
+    } 
+    if (state == free_state || state == locked_state) {
+      bool isMoving = Bean.checkMotionEvent(ORIENT_EVENT);
+      if (isMoving) {
+        Serial.print("-1");
+        alertBuzzer();
+      }
+    } 
   }
   Bean.sleep(2000);
 }
 
 bool validProtocol() {
-  String data = Serial.readString();  
-  hash_in = "";
-  user_in = "";
-  action_in = "";
+  String data = Serial.readString();
   int firstComma = data.indexOf(',');
   if (firstComma == -1) return false;
   hash_in = data.substring(0, firstComma);
@@ -181,20 +176,23 @@ bool validProtocol() {
   if (secondComma == -1) return false;
   user_in = data.substring(firstComma + 1, secondComma);
   action_in = data.substring(secondComma + 1);
-  
+  logMsg("data = " + hash_in + "." + user_in + "." + action_in);
+  int temp = action_in.toInt();
+  if (temp == 0) return false;
+  else {
+    action = static_cast<Action>(temp);
+    if (action != unlock_bicycle && action != lock_bicycle && action != return_bicycle && action != get_state) return false;
+  }
   if (savedHash.length() == 32) {
     return (hash_in == savedHash && user_in == savedUserId);
   } else {
     String hash_out = llb_serial + "," + user_in;
     unsigned char* hash=MD5::make_hash((char*)hash_out.c_str());
     char *md5str = MD5::make_digest(hash, 16);
-    logMsg("check " + String(md5str));
+    logMsg("check " + String(md5str) + "------" + user_in);
     bool result = String(md5str) == hash_in;
     free(hash);
     free(md5str);
-    int temp = action_in.toInt();
-    if (temp == 0) result = false;
-    else action = static_cast<Action>(temp);
     return result;
   }
 }

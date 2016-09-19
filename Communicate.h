@@ -1,8 +1,8 @@
 const int DEBUG = 0;
-const int RESET_MEMORY = 0;
-int speakerPin = 1;
+const int RESET_MEMORY = 1;
+int speakerPin = 5;
 int buttonPin = A1;
-String llb_serial = "SG11116";
+String llb_serial = "SG11111";
 
 typedef enum BicycleState {
   free_state = 0,
