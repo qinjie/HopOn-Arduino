@@ -143,6 +143,8 @@ void loop() {
     if (savedHash.length() == 0 && action != get_state) {
       writeHashEEPROM(hash_in);
       writeUserIdEEPROM(user_in);
+      savedHash = hash_in;
+      savedUserId = user_in;
     }
     
     if (action == unlock_bicycle 
