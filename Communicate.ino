@@ -56,10 +56,12 @@ void resetEEPROM() {
   for (int addr = 0; addr < 100; ++addr) {
     EEPROM.write(addr, '\0');
   }
+  savedHash = "";
+  savedUserId = "";
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(56600);
   pinMode(speakerPin, OUTPUT);
   pinMode(buttonPin, INPUT);
   digitalWrite(buttonPin, HIGH);
