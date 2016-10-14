@@ -5,16 +5,20 @@
 
 int buttonState = 0;  // HIGH: off, LOW: on
 
+// Different buzzer sounds for different actions
 int melodyUnlock[] = {NOTE_C4, NOTE_G3,NOTE_G3, NOTE_A3, NOTE_G3,0, NOTE_B3, NOTE_C4};
 int melodyLock[] = {NOTE_C4, NOTE_B3, 0, NOTE_G3, NOTE_A3, NOTE_G3, NOTE_G3, NOTE_C4};
 int melodyReturn[] = {NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_A3, NOTE_G3, NOTE_G3, NOTE_C4}; 
 int noteDurations[] = {4, 8, 8, 4,4,4,4,4 };
 
+// Initial state of bicycle is free
 BicycleState state = free_state;
+
 String hash_in, user_in, action_in;
 Action action;
 String savedHash, savedUserId;
 
+// MD5 Hash is stored in EEPROM, from byte 0 to byte 32
 String readHashEEPROM() {
   String res = "";
   for (int addr = 0; addr < 32; ++addr) {
@@ -30,6 +34,7 @@ void writeHashEEPROM(String hash) {
   }
 }
 
+// UserId is stored in EEPROM, from byte 64 to byte 80
 String readUserIdEEPROM() {
   String res = "";
   for (int addr = 64; addr < 80; ++addr) {
@@ -45,6 +50,7 @@ void writeUserIdEEPROM(String userId) {
   }
 }
 
+// bicycle state is stored in EEPROM, at byte 99
 BicycleState readBicycleStateEEPROM() {
   return static_cast<BicycleState>(EEPROM.read(99));
 }
@@ -52,6 +58,7 @@ void writeBicycleStateEEPROM(BicycleState state) {
   EEPROM.write(99, state);
 }
 
+// Erase all values in EEPROM
 void resetEEPROM() {
   for (int addr = 0; addr < 100; ++addr) {
     EEPROM.write(addr, '\0');
@@ -60,18 +67,20 @@ void resetEEPROM() {
   savedUserId = "";
 }
 
+// Setup function runs only ONCE when sketch is started
 void setup() {
   Serial.begin(56600);
   pinMode(speakerPin, OUTPUT);
   pinMode(buttonPin, INPUT);
   digitalWrite(buttonPin, HIGH);
-  
+
+  // Enable motion detection
   Bean.enableMotionEvent(ORIENT_EVENT);
   uint8_t mode = Bean.getAccelerometerPowerMode();
   if (mode != VALUE_LOW_POWER_10MS) {
     Bean.accelRegisterWrite(REG_POWER_MODE_X11, VALUE_LOW_POWER_10MS);
   }
-
+  
   if (RESET_MEMORY) resetEEPROM();
   
   savedHash = readHashEEPROM();
@@ -87,6 +96,7 @@ void setup() {
   noTone(speakerPin);
 }
 
+// Returns bicycle state to mobile app
 void respondState() {
   switch (state) {
     case free_state: Serial.print("0"); break;
@@ -137,29 +147,37 @@ void returnBicycle() {
   logMsg("Returned!");
 }
 
+// Loop function runs every 2 seconds
 void loop() {
-  logMsg("loop"); 
+  logMsg("loop");
+
+   // Check if received message is valid
   if (validProtocol()) {
     logMsg("valid protocol");
-    // Save hash and user id
+    
+    // Save hash and user id if this is first time some user unlocks bicycle
     if (savedHash.length() == 0 && action != get_state) {
       writeHashEEPROM(hash_in);
       writeUserIdEEPROM(user_in);
       savedHash = hash_in;
       savedUserId = user_in;
     }
-    
+
+    // Call function based on received action
     if (action == unlock_bicycle 
       && (state == free_state || state == locked_state)) unlockBicycle();
     else if (action == lock_bicycle && state == unlocked_state) lockBicycle();
     else if (action == return_bicycle 
       && (state == unlocked_state || state == locked_state)) returnBicycle();
     else if (action == get_state) respondState();
-  } else {
+  } else {  // If no message is received
+    // Check if button is pressed to lock bicycle
     buttonState = digitalRead(buttonPin);
     if (buttonState == LOW && state == unlocked_state) {
       lockBicycle();
     } 
+
+    // Check if bicycle is moving illegally
     if (state == free_state || state == locked_state) {
       bool isMoving = Bean.checkMotionEvent(ORIENT_EVENT);
       if (isMoving) {
@@ -171,6 +189,16 @@ void loop() {
   Bean.sleep(2000);
 }
 
+/*
+ * Checks if received message is in correct format
+ * Format: MD5("<bicycleSerial>,<userId>"),<userId>,<action>
+ * Message has three parts, seperated by comma
+ * - Part 1: Hash MD5 of string "<bicycleSerial>,<userId>" 
+ * (bicycleSerial and userId is seperated by comma).
+ * Hash MD5 must have length = 32
+ * - Part 2: userId. userId has length = 16
+ * - Part 3: action (from enum Action)
+ */
 bool validProtocol() {
   String data = Serial.readString();
   int firstComma = data.indexOf(',');
@@ -180,13 +208,18 @@ bool validProtocol() {
   if (secondComma == -1) return false;
   user_in = data.substring(firstComma + 1, secondComma);
   action_in = data.substring(secondComma + 1);
+  // Seperate message into hash_in (Hash MD5), user_in (userId), action_in (action)
   logMsg("data = " + hash_in + "." + user_in + "." + action_in);
+
+  // Check action is valid
   int temp = action_in.toInt();
   if (temp == 0) return false;
   else {
     action = static_cast<Action>(temp);
-    if (action != unlock_bicycle && action != lock_bicycle && action != return_bicycle && action != get_state) return false;
+    if (action != unlock_bicycle && action != lock_bicycle && action != return_bicycle && action != get_state) 
+      return false;
   }
+
   if (savedHash.length() == 32) {
     return (hash_in == savedHash && user_in == savedUserId);
   } else {
