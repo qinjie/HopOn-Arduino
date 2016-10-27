@@ -74,8 +74,13 @@ void setup() {
   pinMode(buttonPin, INPUT);
   digitalWrite(buttonPin, HIGH);
 
-  // Enable motion detection
+  Bean.enableMotionEvent(ANY_MOTION_EVENT);
+  Bean.enableMotionEvent(LOW_G_EVENT);
+  Bean.enableMotionEvent(HIGH_G_EVENT);
+  Bean.enableMotionEvent(FLAT_EVENT);
   Bean.enableMotionEvent(ORIENT_EVENT);
+  Bean.enableMotionEvent(SINGLE_TAP_EVENT);
+  Bean.enableMotionEvent(DOUBLE_TAP_EVENT);
   uint8_t mode = Bean.getAccelerometerPowerMode();
   if (mode != VALUE_LOW_POWER_10MS) {
     Bean.accelRegisterWrite(REG_POWER_MODE_X11, VALUE_LOW_POWER_10MS);
@@ -179,14 +184,20 @@ void loop() {
 
     // Check if bicycle is moving illegally
     if (state == free_state || state == locked_state) {
-      bool isMoving = Bean.checkMotionEvent(ORIENT_EVENT);
+      bool isMoving = Bean.checkMotionEvent(ANY_MOTION_EVENT)
+        || Bean.checkMotionEvent(FLAT_EVENT)
+        || Bean.checkMotionEvent(ORIENT_EVENT)
+        || Bean.checkMotionEvent(SINGLE_TAP_EVENT)
+        || Bean.checkMotionEvent(DOUBLE_TAP_EVENT)
+        || Bean.checkMotionEvent(HIGH_G_EVENT)
+        || Bean.checkMotionEvent(LOW_G_EVENT);
       if (isMoving) {
         Serial.print("-1");
         alertBuzzer();
       }
     } 
   }
-  Bean.sleep(2000);
+  Bean.sleep(1500);
 }
 
 /*
